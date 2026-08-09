@@ -1,7 +1,7 @@
 import os
 
 import psycopg2
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect, url_for
 
 app = Flask(__name__)
 
@@ -46,41 +46,200 @@ def initialize_database():
         print(f"Database initialization failed: {error}")
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return f"""
-    <html>
-        <head>
-            <title>{APP_NAME}</title>
-        </head>
+    messages = []
+    database_status = "connected"
 
-        <body>
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, message, created_at
+            FROM messages
+            ORDER BY id DESC
+        """)
+
+        messages = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+    except Exception as error:
+        database_status = f"error: {str(error)}"
+
+    message_rows = ""
+
+    for row in messages:
+        message_rows += f"""
+        <tr>
+            <td>{row[0]}</td>
+            <td>{row[1]}</td>
+            <td>{row[2]}</td>
+        </tr>
+        """
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{APP_NAME}</title>
+        <meta charset="UTF-8">
+
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                max-width: 900px;
+                margin: 40px auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }}
+
+            .container {{
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+            }}
+
+            h1 {{
+                margin-bottom: 5px;
+            }}
+
+            .info {{
+                color: #666;
+                margin-bottom: 30px;
+            }}
+
+            form {{
+                margin-bottom: 30px;
+            }}
+
+            input[type="text"] {{
+                width: 70%;
+                padding: 10px;
+                font-size: 16px;
+            }}
+
+            button {{
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+
+            th, td {{
+                border: 1px solid #ddd;
+                padding: 10px;
+                text-align: left;
+            }}
+
+            th {{
+                background-color: #f0f0f0;
+            }}
+
+            .status {{
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #eeeeee;
+            }}
+        </style>
+
+    </head>
+
+    <body>
+
+        <div class="container">
 
             <h1>{APP_NAME}</h1>
 
-            <h2>Docker + Dokploy + PostgreSQL</h2>
+            <div class="info">
+                Environment: {APP_ENV}<br>
+                Version: {APP_VERSION}
+            </div>
 
-            <p>Environment: {APP_ENV}</p>
-            <p>Version: {APP_VERSION}</p>
+            <h2>Add Message</h2>
 
-            <hr>
+            <form method="POST" action="/add-message">
 
-            <p>
-                <a href="/health">Health Check</a>
-            </p>
+                <input
+                    type="text"
+                    name="message"
+                    placeholder="Write a message..."
+                    required
+                >
 
-            <p>
-                <a href="/messages">View Messages</a>
-            </p>
+                <button type="submit">
+                    Add Message
+                </button>
 
-        </body>
+            </form>
+
+            <h2>Messages</h2>
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Message</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {message_rows}
+                </tbody>
+
+            </table>
+
+            <div class="status">
+                Database: {database_status}
+            </div>
+
+        </div>
+
+    </body>
     </html>
     """
 
 
-@app.route("/health")
-def health():
+@app.route("/add-message", methods=["POST"])
+def add_message_form():
+    message = request.form.get("message")
 
+    if not message:
+        return redirect(url_for("home"))
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            INSERT INTO messages (message)
+            VALUES (%s)
+            """,
+            (message,)
+        )
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+    except Exception as error:
+        print(f"Failed to insert message: {error}")
+
+    return redirect(url_for("home"))
+
+
+@app.route("/health", methods=["GET"])
+def health():
     database_status = "disconnected"
 
     try:
@@ -109,16 +268,12 @@ def health():
 
 @app.route("/messages", methods=["GET"])
 def get_messages():
-
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT
-                id,
-                message,
-                created_at
+            SELECT id, message, created_at
             FROM messages
             ORDER BY id DESC
         """)
@@ -140,7 +295,6 @@ def get_messages():
         return jsonify(messages)
 
     except Exception as error:
-
         return jsonify({
             "status": "error",
             "message": str(error)
@@ -148,8 +302,7 @@ def get_messages():
 
 
 @app.route("/messages", methods=["POST"])
-def add_message():
-
+def add_message_api():
     data = request.get_json(silent=True)
 
     if not data or not data.get("message"):
@@ -185,7 +338,6 @@ def add_message():
         }), 201
 
     except Exception as error:
-
         return jsonify({
             "status": "error",
             "message": str(error)
