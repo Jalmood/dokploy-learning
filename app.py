@@ -1,21 +1,29 @@
+import os
 from flask import Flask
 
 app = Flask(__name__)
 
+APP_NAME = os.getenv("APP_NAME", "Dokploy Learning Project")
+APP_ENV = os.getenv("APP_ENV", "Development")
+APP_VERSION = os.getenv("APP_VERSION", "1.0")
+
 
 @app.route("/")
 def home():
-    return """
+    return f"""
     <html>
         <head>
-            <title>Dokploy Learning</title>
+            <title>{APP_NAME}</title>
         </head>
         <body>
-            <h1>Dokploy Learning Project</h1>
-            <h2>Automatic Deployment Test</h2>
+            <h1>{APP_NAME}</h1>
+
+            <h2>Environment Variables Test</h2>
+
+            <p>Environment: {APP_ENV}</p>
+            <p>Version: {APP_VERSION}</p>
 
             <p>Hello from Docker + Dokploy!</p>
-            <p>This page was automatically updated from GitHub.</p>
         </body>
     </html>
     """
@@ -25,7 +33,9 @@ def home():
 def health():
     return {
         "status": "ok",
-        "service": "dokploy-learning"
+        "service": APP_NAME,
+        "environment": APP_ENV,
+        "version": APP_VERSION
     }
 
 
