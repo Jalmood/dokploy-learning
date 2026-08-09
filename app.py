@@ -12,7 +12,10 @@ def home():
         </head>
         <body>
             <h1>Dokploy Learning Project</h1>
+            <h2>Automatic Deployment Test</h2>
+
             <p>Hello from Docker + Dokploy!</p>
+            <p>This page was automatically updated from GitHub.</p>
         </body>
     </html>
     """
