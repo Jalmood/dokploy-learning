@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
 load_dotenv()
@@ -21,6 +22,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 
 class Message(db.Model):
@@ -36,6 +38,11 @@ class Message(db.Model):
         nullable=False
     )
 
+    author = db.Column(
+        db.String(100),
+        nullable=True
+    )
+
     created_at = db.Column(
         db.DateTime,
         server_default=db.func.now()
@@ -45,6 +52,7 @@ class Message(db.Model):
         return {
             "id": self.id,
             "message": self.message,
+            "author": self.author,
             "created_at": (
                 self.created_at.isoformat()
                 if self.created_at
@@ -79,14 +87,28 @@ def home():
 @app.route("/add-message", methods=["POST"])
 def add_message_form():
     message_text = request.form.get("message")
+    author = request.form.get("author")
 
-    if message_text:
+    if not message_text:
+        return redirect(
+            url_for("home")
+        )
+
+    try:
         new_message = Message(
-            message=message_text
+            message=message_text,
+            author=author
         )
 
         db.session.add(new_message)
         db.session.commit()
+
+    except Exception as error:
+        db.session.rollback()
+
+        print(
+            f"Failed to insert message: {error}"
+        )
 
     return redirect(
         url_for("home")
@@ -95,14 +117,21 @@ def add_message_form():
 
 @app.route("/messages", methods=["GET"])
 def get_messages():
-    messages = Message.query.order_by(
-        Message.id.desc()
-    ).all()
+    try:
+        messages = Message.query.order_by(
+            Message.id.desc()
+        ).all()
 
-    return jsonify([
-        message.to_dict()
-        for message in messages
-    ])
+        return jsonify([
+            message.to_dict()
+            for message in messages
+        ])
+
+    except Exception as error:
+        return jsonify({
+            "status": "error",
+            "message": str(error)
+        }), 500
 
 
 @app.route("/messages", methods=["POST"])
@@ -115,17 +144,27 @@ def add_message_api():
             "message": "message is required"
         }), 400
 
-    new_message = Message(
-        message=data["message"]
-    )
+    try:
+        new_message = Message(
+            message=data["message"],
+            author=data.get("author")
+        )
 
-    db.session.add(new_message)
-    db.session.commit()
+        db.session.add(new_message)
+        db.session.commit()
 
-    return jsonify({
-        "status": "created",
-        "message": new_message.to_dict()
-    }), 201
+        return jsonify({
+            "status": "created",
+            "message": new_message.to_dict()
+        }), 201
+
+    except Exception as error:
+        db.session.rollback()
+
+        return jsonify({
+            "status": "error",
+            "message": str(error)
+        }), 500
 
 
 @app.route("/health")
@@ -147,22 +186,6 @@ def health():
         "version": APP_VERSION,
         "database": database_status
     })
-
-
-def initialize_database():
-    try:
-        with app.app_context():
-            db.create_all()
-
-        print("Database initialized successfully")
-
-    except Exception as error:
-        print(
-            f"Database initialization failed: {error}"
-        )
-
-
-initialize_database()
 
 
 if __name__ == "__main__":
