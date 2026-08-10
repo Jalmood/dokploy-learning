@@ -1,0 +1,55 @@
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: dokploy-learning-app
+
+    ports:
+      - "5000:5000"
+
+    environment:
+      APP_NAME: "Dokploy Learning Local"
+      APP_ENV: "Development"
+      APP_VERSION: "2.0"
+
+      DATABASE_URL: "postgresql://dokploy_user:dokploy_password@db:5432/dokploy_learning"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+  db:
+    image: postgres:16
+
+    container_name: dokploy-learning-db
+
+    environment:
+      POSTGRES_DB: dokploy_learning
+      POSTGRES_USER: dokploy_user
+      POSTGRES_PASSWORD: dokploy_password
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U dokploy_user -d dokploy_learning"
+        ]
+
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+
+volumes:
+  postgres_data:
