@@ -80,6 +80,7 @@
             <th>Author</th>
             <th>Message</th>
             <th>Created At</th>
+            <th>الحالة</th>
         </tr>
 
         </thead>
@@ -89,30 +90,18 @@
         {% for message in messages %}
 
         <tr>
-
-            <td>
-                {{ message.id }}
-            </td>
-
-            <td>
-                {{ message.author or "-" }}
-            </td>
-
-            <td>
-                {{ message.message }}
-            </td>
-
-            <td>
-                {{ message.created_at }}
-            </td>
-
+            <td>{{ message.id }}</td>
+            <td>{{ message.author or "-" }}</td>
+            <td>{{ message.message }}</td>
+            <td>{{ message.status }}</td>
+            <td>{{ message.created_at }}</td>
         </tr>
 
         {% else %}
 
         <tr>
 
-            <td colspan="4">
+            <td colspan="5">
                 No messages found.
             </td>
 

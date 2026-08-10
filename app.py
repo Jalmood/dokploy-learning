@@ -43,6 +43,12 @@ class Message(db.Model):
         nullable=True
     )
 
+    status = db.Column(
+        db.String(50),
+        nullable=False,
+        server_default="Active"
+    )
+
     created_at = db.Column(
         db.DateTime,
         server_default=db.func.now()
@@ -53,6 +59,7 @@ class Message(db.Model):
             "id": self.id,
             "message": self.message,
             "author": self.author,
+            "status": self.status,
             "created_at": (
                 self.created_at.isoformat()
                 if self.created_at
