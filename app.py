@@ -1,8 +1,8 @@
 import os
 
-import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, redirect, url_for, render_template
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 load_dotenv()
 
@@ -14,59 +14,54 @@ APP_VERSION = os.getenv("APP_VERSION", "1.0")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not configured")
 
-def get_db_connection():
-    if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL environment variable is not configured")
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    return psycopg2.connect(
-        DATABASE_URL,
-        connect_timeout=5
+db = SQLAlchemy(app)
+
+
+class Message(db.Model):
+    __tablename__ = "messages"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
     )
 
+    message = db.Column(
+        db.Text,
+        nullable=False
+    )
 
-def initialize_database():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+    created_at = db.Column(
+        db.DateTime,
+        server_default=db.func.now()
+    )
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "message": self.message,
+            "created_at": (
+                self.created_at.isoformat()
+                if self.created_at
+                else None
             )
-        """)
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        print("Database initialized successfully")
-
-    except Exception as error:
-        print(f"Database initialization failed: {error}")
+        }
 
 
 @app.route("/")
 def home():
-    messages = []
     database_status = "connected"
+    messages = []
 
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT id, message, created_at
-            FROM messages
-            ORDER BY id DESC
-        """)
-
-        messages = cur.fetchall()
-
-        cur.close()
-        conn.close()
+        messages = Message.query.order_by(
+            Message.id.desc()
+        ).all()
 
     except Exception as error:
         database_status = f"error: {str(error)}"
@@ -83,46 +78,62 @@ def home():
 
 @app.route("/add-message", methods=["POST"])
 def add_message_form():
-    message = request.form.get("message")
+    message_text = request.form.get("message")
 
-    if not message:
-        return redirect(url_for("home"))
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute(
-            """
-            INSERT INTO messages (message)
-            VALUES (%s)
-            """,
-            (message,)
+    if message_text:
+        new_message = Message(
+            message=message_text
         )
 
-        conn.commit()
-        cur.close()
-        conn.close()
+        db.session.add(new_message)
+        db.session.commit()
 
-    except Exception as error:
-        print(f"Failed to insert message: {error}")
+    return redirect(
+        url_for("home")
+    )
 
-    return redirect(url_for("home"))
+
+@app.route("/messages", methods=["GET"])
+def get_messages():
+    messages = Message.query.order_by(
+        Message.id.desc()
+    ).all()
+
+    return jsonify([
+        message.to_dict()
+        for message in messages
+    ])
+
+
+@app.route("/messages", methods=["POST"])
+def add_message_api():
+    data = request.get_json(silent=True)
+
+    if not data or not data.get("message"):
+        return jsonify({
+            "status": "error",
+            "message": "message is required"
+        }), 400
+
+    new_message = Message(
+        message=data["message"]
+    )
+
+    db.session.add(new_message)
+    db.session.commit()
+
+    return jsonify({
+        "status": "created",
+        "message": new_message.to_dict()
+    }), 201
 
 
 @app.route("/health")
 def health():
-    database_status = "disconnected"
-
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT 1")
-        cur.fetchone()
-
-        cur.close()
-        conn.close()
+        db.session.execute(
+            db.text("SELECT 1")
+        )
 
         database_status = "connected"
 
@@ -138,11 +149,25 @@ def health():
     })
 
 
+def initialize_database():
+    try:
+        with app.app_context():
+            db.create_all()
+
+        print("Database initialized successfully")
+
+    except Exception as error:
+        print(
+            f"Database initialization failed: {error}"
+        )
+
+
 initialize_database()
 
 
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=5000
+        port=5000,
+        debug=APP_ENV == "Development"
     )
