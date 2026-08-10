@@ -1,7 +1,7 @@
 import os
 
 import psycopg2
-from flask import Flask, jsonify, request, redirect, url_for
+from flask import Flask, jsonify, request, redirect, url_for, render_template
 
 app = Flask(__name__)
 
@@ -36,7 +36,6 @@ def initialize_database():
         """)
 
         conn.commit()
-
         cur.close()
         conn.close()
 
@@ -46,7 +45,7 @@ def initialize_database():
         print(f"Database initialization failed: {error}")
 
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
     messages = []
     database_status = "connected"
@@ -69,143 +68,14 @@ def home():
     except Exception as error:
         database_status = f"error: {str(error)}"
 
-    message_rows = ""
-
-    for row in messages:
-        message_rows += f"""
-        <tr>
-            <td>{row[0]}</td>
-            <td>{row[1]}</td>
-            <td>{row[2]}</td>
-        </tr>
-        """
-
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>{APP_NAME}</title>
-        <meta charset="UTF-8">
-
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                max-width: 900px;
-                margin: 40px auto;
-                padding: 20px;
-                background-color: #f5f5f5;
-            }}
-
-            .container {{
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-            }}
-
-            h1 {{
-                margin-bottom: 5px;
-            }}
-
-            .info {{
-                color: #666;
-                margin-bottom: 30px;
-            }}
-
-            form {{
-                margin-bottom: 30px;
-            }}
-
-            input[type="text"] {{
-                width: 70%;
-                padding: 10px;
-                font-size: 16px;
-            }}
-
-            button {{
-                padding: 10px 20px;
-                font-size: 16px;
-                cursor: pointer;
-            }}
-
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-            }}
-
-            th, td {{
-                border: 1px solid #ddd;
-                padding: 10px;
-                text-align: left;
-            }}
-
-            th {{
-                background-color: #f0f0f0;
-            }}
-
-            .status {{
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #eeeeee;
-            }}
-        </style>
-
-    </head>
-
-    <body>
-
-        <div class="container">
-
-            <h1>{APP_NAME}</h1>
-
-            <div class="info">
-                Environment: {APP_ENV}<br>
-                Version: {APP_VERSION}
-            </div>
-
-            <h2>Add Message</h2>
-
-            <form method="POST" action="/add-message">
-
-                <input
-                    type="text"
-                    name="message"
-                    placeholder="Write a message..."
-                    required
-                >
-
-                <button type="submit">
-                    Add Message
-                </button>
-
-            </form>
-
-            <h2>Messages</h2>
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Message</th>
-                        <th>Created At</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {message_rows}
-                </tbody>
-
-            </table>
-
-            <div class="status">
-                Database: {database_status}
-            </div>
-
-        </div>
-
-    </body>
-    </html>
-    """
+    return render_template(
+        "index.html",
+        app_name=APP_NAME,
+        app_env=APP_ENV,
+        app_version=APP_VERSION,
+        messages=messages,
+        database_status=database_status
+    )
 
 
 @app.route("/add-message", methods=["POST"])
@@ -228,7 +98,6 @@ def add_message_form():
         )
 
         conn.commit()
-
         cur.close()
         conn.close()
 
@@ -238,7 +107,7 @@ def add_message_form():
     return redirect(url_for("home"))
 
 
-@app.route("/health", methods=["GET"])
+@app.route("/health")
 def health():
     database_status = "disconnected"
 
@@ -264,84 +133,6 @@ def health():
         "version": APP_VERSION,
         "database": database_status
     })
-
-
-@app.route("/messages", methods=["GET"])
-def get_messages():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT id, message, created_at
-            FROM messages
-            ORDER BY id DESC
-        """)
-
-        rows = cur.fetchall()
-
-        cur.close()
-        conn.close()
-
-        messages = []
-
-        for row in rows:
-            messages.append({
-                "id": row[0],
-                "message": row[1],
-                "created_at": row[2].isoformat()
-            })
-
-        return jsonify(messages)
-
-    except Exception as error:
-        return jsonify({
-            "status": "error",
-            "message": str(error)
-        }), 500
-
-
-@app.route("/messages", methods=["POST"])
-def add_message_api():
-    data = request.get_json(silent=True)
-
-    if not data or not data.get("message"):
-        return jsonify({
-            "status": "error",
-            "message": "message is required"
-        }), 400
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute(
-            """
-            INSERT INTO messages (message)
-            VALUES (%s)
-            RETURNING id
-            """,
-            (data["message"],)
-        )
-
-        message_id = cur.fetchone()[0]
-
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-        return jsonify({
-            "status": "created",
-            "id": message_id,
-            "message": data["message"]
-        }), 201
-
-    except Exception as error:
-        return jsonify({
-            "status": "error",
-            "message": str(error)
-        }), 500
 
 
 initialize_database()

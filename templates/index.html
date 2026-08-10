@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{{ app_name }}</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>{{ app_name }}</h1>
+
+    <div class="application-info">
+        <span>Environment: {{ app_env }}</span>
+        <span>Version: {{ app_version }}</span>
+    </div>
+
+    <hr>
+
+    <h2>Add Message</h2>
+
+    <form method="POST" action="{{ url_for('add_message_form') }}">
+
+        <input
+            type="text"
+            name="message"
+            placeholder="Write a message..."
+            required
+        >
+
+        <button type="submit">
+            Add Message
+        </button>
+
+    </form>
+
+    <h2>Messages</h2>
+
+    <table>
+
+        <thead>
+
+        <tr>
+            <th>ID</th>
+            <th>Message</th>
+            <th>Created At</th>
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for row in messages %}
+
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="3">
+                No messages found.
+            </td>
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    <div class="status">
+        Database: {{ database_status }}
+    </div>
+
+</div>
+
+</body>
+</html>
