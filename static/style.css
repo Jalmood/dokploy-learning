@@ -25,9 +25,36 @@ h1 {
 }
 
 form {
-    display: flex;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
     margin-bottom: 30px;
+}
+
+input,
+select,
+textarea {
+    padding: 12px;
+    font-size: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+button {
+    padding: 12px 20px;
+    cursor: pointer;
+    grid-column: 1 / -1;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
 }
 
 input {
@@ -62,4 +89,45 @@ th {
     background: #eee;
     padding: 12px;
     border-radius: 5px;
+}
+
+.progress-wrapper {
+    min-width: 140px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e5e5e5;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #333;
+    transition: width 0.3s ease;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.edit-link {
+    margin-right: 10px;
+}
+
+.delete-form {
+    display: inline;
+    margin: 0;
+}
+
+.delete-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: inherit;
 }

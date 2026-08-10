@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Edit Task</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Edit Task</h1>
+
+    <form
+        method="POST"
+        action="{{ url_for('update_task', task_id=task.id) }}"
+    >
+
+        <label>Task Title</label>
+
+        <input
+            type="text"
+            name="title"
+            value="{{ task.title }}"
+            required
+        >
+
+        <label>Category</label>
+
+        <input
+            type="text"
+            name="category"
+            value="{{ task.category or '' }}"
+        >
+
+        <label>Project</label>
+
+        <input
+            type="text"
+            name="project"
+            value="{{ task.project or '' }}"
+        >
+
+        <label>Priority</label>
+
+        <select name="priority">
+
+            {% for priority in ["Low", "Medium", "High", "Critical"] %}
+
+            <option
+                value="{{ priority }}"
+                {% if task.priority == priority %}selected{% endif %}
+            >
+                {{ priority }}
+            </option>
+
+            {% endfor %}
+
+        </select>
+
+        <label>Status</label>
+
+        <select name="status">
+
+            {% for status in [
+                "New",
+                "In Progress",
+                "Waiting",
+                "On Hold",
+                "Completed",
+                "Cancelled"
+            ] %}
+
+            <option
+                value="{{ status }}"
+                {% if task.status == status %}selected{% endif %}
+            >
+                {{ status }}
+            </option>
+
+            {% endfor %}
+
+        </select>
+
+        <label>Progress %</label>
+
+        <input
+            type="number"
+            name="progress"
+            min="0"
+            max="100"
+            value="{{ task.progress }}"
+        >
+
+        <button type="submit">
+            Save Changes
+        </button>
+
+    </form>
+
+    <p>
+        <a href="{{ url_for('home') }}">
+            Back to Tasks
+        </a>
+    </p>
+
+</div>
+
+</body>
+
+</html>
